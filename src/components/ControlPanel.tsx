@@ -36,6 +36,7 @@ interface ControlPanelProps {
   isSpinning: boolean;
   spinLocked: boolean;
   enrollOpen: boolean;
+  roundInProgress: boolean;
   onToggleEnroll: () => void;
 }
 
@@ -56,6 +57,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   isSpinning,
   spinLocked,
   enrollOpen,
+  roundInProgress,
   onToggleEnroll,
 }) => {
   const [activeTab, setActiveTab] = useState<'tiktok' | 'gifts' | 'likes' | 'general' | 'sound' | 'test'>('tiktok');
@@ -986,13 +988,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
                 <button
                   onClick={onToggleEnroll}
+                  disabled={roundInProgress}
+                  title={roundInProgress ? 'Kazanan belirlenene kadar katılım otomatik kilitli' : 'Katılımı aç veya kapat'}
                   className={`px-4 py-3 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
-                    enrollOpen
+                    roundInProgress
+                      ? 'bg-amber-500/20 text-amber-200 border-amber-500/30 cursor-not-allowed opacity-80'
+                      : enrollOpen
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30'
                       : 'bg-rose-500/20 text-rose-300 border-rose-500/30 hover:bg-rose-500/30'
                   }`}
                 >
-                  {enrollOpen ? '✅ Katılım Açık' : '🔒 Katılım Kapalı'}
+                  {roundInProgress ? '🔒 Tur Bitene Kadar Kilitli' : enrollOpen ? '✅ Katılım Açık' : '🔒 Katılım Kapalı'}
                 </button>
               </div>
 

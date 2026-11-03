@@ -82,6 +82,8 @@ export default function App() {
   const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
   const [viewMode, setViewMode] = useState<'broadcast' | 'control'>('control');
   const [enrollOpen, setEnrollOpen] = useState(true);
+  // Katılım, ilk dönüşten kazanan ilan edilene kadar kapalı kalır.
+  const [roundInProgress, setRoundInProgress] = useState(false);
 
   // Big Gift Alert State (100+ jeton alert: kesene bereketler olsun)
   const [bigGiftAlert, setBigGiftAlert] = useState<BigGiftAlertData | null>(null);
@@ -117,18 +119,6 @@ export default function App() {
   const spinLockedRef = useRef(false);
   const enrollOpenRef = useRef(true);
   const settingsRef = useRef(settings);
-
-  // Queue to buffer entries received while the wheel is spinning (User Requirement: Çark dönerken kimse giremeyecek)
-  const pendingNextRoundQueueRef = useRef<
-    Array<{
-      username: string;
-      displayName: string;
-      avatar: string;
-      rights: number;
-      source: 'follow' | 'like' | 'gift';
-      extraDesc?: string;
-    }>
-  >([]);
 
   useEffect(() => {
     isSpinningRef.current = isSpinning;
@@ -217,30 +207,18 @@ export default function App() {
 
       const safeAvatar = avatar || getFallbackAvatar(username);
 
-      // KULLANICI TALEBİ: Çark dönmeye başladığı zaman kimse giremeyecek!
-      // Çark dönerken veya kilitliyken gelen tüm haklar kuyruğa alınır ve bir sonraki turda eklenir.
-      if (isSpinningRef.current || spinLockedRef.current) {
-        pendingNextRoundQueueRef.current.push({
-          username,
-          displayName,
-          avatar: safeAvatar,
-          rights: rightsToAdd,
-          source,
-          extraDesc,
-        });
-
+      // İlk dönüş başladığında katılım kazanan belirlenene kadar kilitlenir.
+      // Kilitliyken gelen yorum/hediye/takip yeni katılımcı veya hak oluşturmaz.
+      if (roundInProgress || isSpinningRef.current || spinLockedRef.current || !enrollOpenRef.current) {
         addFeedItem({
-          type: source,
+          type: 'system',
           username: displayName || username,
-          text: `+${rightsToAdd} Hak (🔒 Çark Dönüyor - Sonraki Tura Aktarılacak)`,
+          text: '🔒 Katılım kapalı — kazanan belirlenene kadar yeni hak eklenmedi.',
           subtext: extraDesc,
           avatar: safeAvatar,
         });
         return;
       }
-
-      // Çark dönmüyorken katılım kapalıysa yeni hak ekleme.
-      if (!enrollOpenRef.current) return;
 
       const currentSettings = settingsRef.current;
 
@@ -352,7 +330,7 @@ export default function App() {
         }
       });
     },
-    [addFeedItem]
+    [addFeedItem, roundInProgress]
   );
 
   // Per-Person Like Processor (Strictly per-person accumulator with limit enforcement)
@@ -360,7 +338,7 @@ export default function App() {
     (username: string, displayName: string, avatar: string, batchLikes: number) => {
       const currentSettings = settingsRef.current;
       if (!currentSettings.likeEnabled) return;
-      if (!enrollOpenRef.current) return;
+      if (roundInProgress || !enrollOpenRef.current) return;
 
       setParticipants((prev) => {
         const existingIdx = prev.findIndex((p) => p.username.toLowerCase() === username.toLowerCase());
@@ -422,7 +400,7 @@ export default function App() {
         }
       });
     },
-    [addRightsToParticipant]
+    [addRightsToParticipant, roundInProgress]
   );
 
   // Connect to WebSocket Server for TikTok Live Events
@@ -778,6 +756,7 @@ export default function App() {
     isSpinningRef.current = true;
     spinLockedRef.current = true;
     enrollOpenRef.current = false;
+    setRoundInProgress(true);
 
     setIsSpinning(true);
     setSpinLocked(true);
@@ -912,10 +891,11 @@ export default function App() {
           awardWinner(remaining[0]);
         }, 600);
       } else {
+        // Bir sonraki eleme dönüşüne izin ver; katılım kilidi kazanana kadar sürer.
         setSpinLocked(false);
         spinLockedRef.current = false;
-        setEnrollOpen(true);
-        enrollOpenRef.current = true;
+        setEnrollOpen(false);
+        enrollOpenRef.current = false;
       }
 
       return updated;
@@ -975,6 +955,7 @@ export default function App() {
   // Winner modal actions: close, keep, and eliminate all update the game state.
   const closeWinnerAndResume = () => {
     setLastRoundWinner(null);
+    setRoundInProgress(false);
     setIsSpinning(false);
     setSpinLocked(false);
     isSpinningRef.current = false;
@@ -1015,6 +996,7 @@ export default function App() {
   // Transition to Next Round
   const handleNextRound = () => {
     setLastRoundWinner(null);
+    setRoundInProgress(false);
     setParticipants([]); // Clear wheel participants for new round
     setRoundParticipants([]);
     setCurrentAngle(0);
@@ -1031,30 +1013,27 @@ export default function App() {
       text: '🔁 Yeni Tur Başlatıldı — Çark hazır!',
     });
 
-    // Çark dönerken kuyruğa alınan hediyeleri yeni tura anında aktar!
-    if (pendingNextRoundQueueRef.current.length > 0) {
-      const queued = [...pendingNextRoundQueueRef.current];
-      pendingNextRoundQueueRef.current = [];
-      setTimeout(() => {
-        queued.forEach((item) => {
-          addRightsToParticipant(
-            item.username,
-            item.displayName,
-            item.avatar,
-            item.rights,
-            item.source,
-            item.extraDesc
-          );
-        });
-      }, 100);
-    }
+  };
+
+  const handleToggleEnroll = () => {
+    // Tur devam ederken manuel buton otomatik kilidi aşamaz.
+    if (roundInProgress || isSpinningRef.current || spinLockedRef.current || lastRoundWinner) return;
+    setEnrollOpen((prev) => {
+      const next = !prev;
+      enrollOpenRef.current = next;
+      return next;
+    });
   };
 
   const handleResetParticipants = () => {
     setParticipants([]);
     setRoundParticipants([]);
     setLastRoundWinner(null);
+    setRoundInProgress(false);
     setSpinLocked(false);
+    spinLockedRef.current = false;
+    setEnrollOpen(true);
+    enrollOpenRef.current = true;
     setCurrentAngle(0);
   };
 
@@ -1126,7 +1105,7 @@ export default function App() {
             onSpinFinished={awardWinner}
             onNextRound={handleNextRound}
             onSpinWheel={handleSpinWheel}
-            onToggleEnroll={() => setEnrollOpen((prev) => !prev)}
+            onToggleEnroll={handleToggleEnroll}
             onResetParticipants={handleResetParticipants}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
@@ -1243,7 +1222,8 @@ export default function App() {
             isSpinning={isSpinning}
             spinLocked={spinLocked}
             enrollOpen={enrollOpen}
-            onToggleEnroll={() => setEnrollOpen((prev) => !prev)}
+            roundInProgress={roundInProgress}
+            onToggleEnroll={handleToggleEnroll}
           />
         )}
       </div>
