@@ -290,7 +290,7 @@ export const WheelCanvas: React.FC<WheelCanvasProps> = ({
     if (currentPick.index !== -1 && currentPick.index !== lastSectorIdxRef.current) {
       lastSectorIdxRef.current = currentPick.index;
       if (soundEnabled && isSpinning) {
-        soundManager.playSectorTick(0.8, (spinVolume || 60) / 100);
+        soundEngine.playSectorTick(0.8, (spinVolume || 60) / 100);
       }
       if (currentPick.participant) {
         setActiveCandidate(currentPick.participant);

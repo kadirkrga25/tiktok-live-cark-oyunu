@@ -711,27 +711,40 @@ export default function App() {
     return { ok: false, message: 'Liste boş döndü.', count: 0 };
   };
 
-  // Auto-Spin Countdown Timer Effect (User Requirement: ekranda gözüksün otomatik moda al diye saniye belirledin)
+  // Auto-spin uses refs so the timer never runs game actions inside a React state updater.
+  // This avoids duplicate spins and React render/update loops.
+  const spinActionRef = useRef<() => void>(() => {});
+  const countdownRef = useRef(autoSpinCountdown);
+
   useEffect(() => {
-    if (!settings.autoSpinEnabled) return;
+    countdownRef.current = autoSpinCountdown;
+  }, [autoSpinCountdown]);
 
-    // Çark dönerken, kilitliyken veya kazanan ekranı açıkken geri sayımı duraklat
-    if (isSpinning || spinLocked || lastRoundWinner) return;
+  useEffect(() => {
+    if (!settings.autoSpinEnabled || isSpinning || spinLocked || lastRoundWinner) return;
 
-    const active = participants.filter((p) => !p.isEliminated && p.rights > 0);
-    if (active.length === 0) return;
+    const active = participants.some((p) => !p.isEliminated && p.rights > 0);
+    if (!active) return;
 
-    const interval = window.setInterval(() => {
-      setAutoSpinCountdown((prev) => {
-        if (prev <= 1) {
-          handleSpinWheel();
-          return settings.autoSpinIntervalSec || 15;
-        }
-        return prev - 1;
-      });
+    const intervalSeconds = Math.max(1, settings.autoSpinIntervalSec || 15);
+    if (countdownRef.current <= 0) {
+      countdownRef.current = intervalSeconds;
+      setAutoSpinCountdown(intervalSeconds);
+    }
+
+    const timer = window.setInterval(() => {
+      const next = countdownRef.current - 1;
+      if (next <= 0) {
+        countdownRef.current = intervalSeconds;
+        setAutoSpinCountdown(intervalSeconds);
+        spinActionRef.current();
+      } else {
+        countdownRef.current = next;
+        setAutoSpinCountdown(next);
+      }
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => window.clearInterval(timer);
   }, [
     settings.autoSpinEnabled,
     settings.autoSpinIntervalSec,
@@ -764,6 +777,9 @@ export default function App() {
     }
 
     if (active.length === 1) {
+      setIsSpinning(false);
+      isSpinningRef.current = false;
+      soundEngine.stopSpinSound();
       awardWinner(active[0]);
       return;
     }
@@ -837,6 +853,9 @@ export default function App() {
 
     animFrameRef.current = requestAnimationFrame(animateSpin);
   };
+
+  // Keep the latest spin callback available to the stable auto-spin timer.
+  spinActionRef.current = handleSpinWheel;
 
   // Handle Wheel Result (Deduction of 1 ticket or elimination)
   const handleSpinResult = (chosenUser: Participant) => {
