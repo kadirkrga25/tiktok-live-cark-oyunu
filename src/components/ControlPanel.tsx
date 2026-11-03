@@ -583,23 +583,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         </div>
                       </td>
                       <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min={0}
-                            max={500}
-                            value={gift.rights}
-                            onChange={(e) =>
-                              handleUpdateGiftRule(
-                                gift.id,
-                                { rights: Math.max(0, parseInt(e.target.value) || 0) },
-                                originalIndex
-                              )
-                            }
-                            className="w-20 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/10 text-white font-mono font-bold focus:outline-none focus:border-pink-500 text-center"
-                          />
-                          <span className="text-slate-400 text-[11px]">Hak</span>
-                        </div>
+                        {gift.action === 'special_bonus' ? (
+                          <span className="inline-flex rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] font-black text-amber-300">
+                            🎲 1–8 Rastgele
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={0}
+                              max={500}
+                              value={gift.rights}
+                              onChange={(e) =>
+                                handleUpdateGiftRule(
+                                  gift.id,
+                                  { rights: Math.max(0, parseInt(e.target.value) || 0) },
+                                  originalIndex
+                                )
+                              }
+                              className="w-20 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-white/10 text-white font-mono font-bold focus:outline-none focus:border-pink-500 text-center"
+                            />
+                            <span className="text-slate-400 text-[11px]">Hak</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-4">
                         <select

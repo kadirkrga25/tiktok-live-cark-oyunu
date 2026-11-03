@@ -9,6 +9,7 @@ import { WheelCanvas } from './WheelCanvas';
 import { ParticipantsList } from './ParticipantsList';
 import { RecentEventsFeed, StreamFeedEvent } from './RecentEventsFeed';
 import { BigGiftAlert } from './BigGiftAlert';
+import { SpecialBonusWheel } from './SpecialBonusWheel';
 import { WinnerModal } from './WinnerModal';
 import {
   Play,
@@ -54,6 +55,8 @@ export interface BroadcastLayoutProps {
   onToggleAutoSpin?: () => void;
   onSetAutoSpinInterval?: (sec: number) => void;
   bigGiftAlert?: BigGiftCelebration | null;
+  specialBonus?: { id: string; username: string; displayName: string; avatar: string; giftName: string; rights: number } | null;
+  onFinishSpecialBonus?: () => void;
   onCloseBigGiftAlert?: () => void;
   onDismissBigGift?: () => void;
   onCloseWinnerModal?: () => void;
@@ -91,6 +94,8 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
   onToggleAutoSpin,
   onSetAutoSpinInterval,
   bigGiftAlert,
+  specialBonus,
+  onFinishSpecialBonus,
   onCloseBigGiftAlert,
   onDismissBigGift,
   onCloseWinnerModal,
@@ -350,7 +355,7 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
 
           {/* Wheel Component */}
           <WheelCanvas
-            participants={roundParticipants || participants}
+            participants={participants}
             isSpinning={isSpinning}
             currentAngle={currentAngle}
             targetAngle={targetAngle}
@@ -400,6 +405,9 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
         alert={bigGiftAlert || null}
         onDismiss={onCloseBigGiftAlert || onDismissBigGift || (() => {})}
       />
+
+      {/* Special bonus vertical wheel: rolls 1-8 and awards the result */}
+      <SpecialBonusWheel bonus={specialBonus || null} onFinish={onFinishSpecialBonus || (() => {})} />
 
       {/* Winner Modal */}
       {activeWinner && (

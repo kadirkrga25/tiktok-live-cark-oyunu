@@ -85,6 +85,9 @@ export default function App() {
 
   // Big Gift Alert State (100+ jeton alert: kesene bereketler olsun)
   const [bigGiftAlert, setBigGiftAlert] = useState<BigGiftAlertData | null>(null);
+  const [specialBonus, setSpecialBonus] = useState<{
+    id: string; username: string; displayName: string; avatar: string; giftName: string; rights: number;
+  } | null>(null);
 
   // Auto-Spin Countdown State
   const [autoSpinCountdown, setAutoSpinCountdown] = useState<number>(settings.autoSpinIntervalSec || 15);
@@ -212,9 +215,6 @@ export default function App() {
     ) => {
       if (rightsToAdd <= 0) return;
 
-      // Katılım tamamen kapalıysa işlem yapma
-      if (!enrollOpenRef.current) return;
-
       const safeAvatar = avatar || getFallbackAvatar(username);
 
       // KULLANICI TALEBİ: Çark dönmeye başladığı zaman kimse giremeyecek!
@@ -238,6 +238,9 @@ export default function App() {
         });
         return;
       }
+
+      // Çark dönmüyorken katılım kapalıysa yeni hak ekleme.
+      if (!enrollOpenRef.current) return;
 
       const currentSettings = settingsRef.current;
 
@@ -527,9 +530,18 @@ export default function App() {
                     text: `${matchedRule.name} × ${giftCount} gönderdi — Anında Çark Dönüşü Tetiklendi!`,
                     avatar: msg.avatar,
                   });
-                  setTimeout(() => {
-                    handleSpinWheel();
-                  }, 800);
+                  window.setTimeout(() => handleSpinWheel(), 800);
+                } else if (matchedRule.action === 'special_bonus') {
+                  // Özel bonus hediyesi: 1-8 arası rastgele hak, dikey bonus çarkında gösterilir.
+                  const bonusRights = 1 + Math.floor(Math.random() * 8);
+                  setSpecialBonus({
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    username: msg.username || msg.uniqueId || 'izleyici',
+                    displayName: msg.displayName || msg.username || 'İzleyici',
+                    avatar: msg.avatar || '',
+                    giftName: `${matchedRule.name}${giftCount > 1 ? ` × ${giftCount}` : ''}`,
+                    rights: bonusRights,
+                  });
                 } else {
                   const rightsWon = (matchedRule.rights || 1) * giftCount;
                   addRightsToParticipant(
@@ -1097,6 +1109,25 @@ export default function App() {
             }}
             bigGiftAlert={bigGiftAlert}
             onCloseBigGiftAlert={() => setBigGiftAlert(null)}
+            specialBonus={specialBonus}
+            onFinishSpecialBonus={() => {
+              if (!specialBonus) return;
+              addRightsToParticipant(
+                specialBonus.username,
+                specialBonus.displayName,
+                specialBonus.avatar,
+                specialBonus.rights,
+                'gift',
+                `${specialBonus.giftName} — Özel Bonus Çarkı`
+              );
+              addFeedItem({
+                type: 'gift',
+                username: specialBonus.displayName,
+                text: `🎁 Özel Bonus Çarkı: +${specialBonus.rights} hak kazandı!`,
+                avatar: specialBonus.avatar,
+              });
+              setSpecialBonus(null);
+            }}
           />
         ) : (
           <ControlPanel
