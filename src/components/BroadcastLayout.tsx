@@ -180,10 +180,10 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
         {/* Live Broadcast Controls & Status Bar */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Çark dönerken katılım kilitli göstergesi */}
-          {(isSpinning || spinLocked) && (
+          {(isSpinning || spinLocked || roundInProgress) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/20 border border-amber-500/50 rounded-xl text-amber-300 text-xs font-black animate-pulse shadow-lg">
               <Lock className="w-3.5 h-3.5" />
-              <span>ÇARK DÖNÜYOR • KATILIM KİLİTLİ</span>
+              <span>{isSpinning ? 'ÇARK DÖNÜYOR' : 'TUR DEVAM EDİYOR'} • KATILIM KİLİTLİ</span>
             </div>
           )}
 

@@ -62,7 +62,7 @@ export default function App() {
   const [settings, setSettings] = useState<GameSettings>(() => {
     try {
       const saved = localStorage.getItem('tiktok_wheel_settings');
-      return saved ? { ...INITIAL_SETTINGS, ...JSON.parse(saved) } : INITIAL_SETTINGS;
+      return saved ? { ...INITIAL_SETTINGS, ...JSON.parse(saved), autoSpinEnabled: false } : INITIAL_SETTINGS;
     } catch {
       return INITIAL_SETTINGS;
     }
@@ -84,6 +84,7 @@ export default function App() {
   const [enrollOpen, setEnrollOpen] = useState(true);
   // Katılım, ilk dönüşten kazanan ilan edilene kadar kapalı kalır.
   const [roundInProgress, setRoundInProgress] = useState(false);
+  const roundInProgressRef = useRef(false);
 
   // Big Gift Alert State (100+ jeton alert: kesene bereketler olsun)
   const [bigGiftAlert, setBigGiftAlert] = useState<BigGiftAlertData | null>(null);
@@ -209,7 +210,7 @@ export default function App() {
 
       // İlk dönüş başladığında katılım kazanan belirlenene kadar kilitlenir.
       // Kilitliyken gelen yorum/hediye/takip yeni katılımcı veya hak oluşturmaz.
-      if (roundInProgress || isSpinningRef.current || spinLockedRef.current || !enrollOpenRef.current) {
+      if (roundInProgressRef.current || roundInProgress || isSpinningRef.current || spinLockedRef.current || !enrollOpenRef.current) {
         addFeedItem({
           type: 'system',
           username: displayName || username,
@@ -502,13 +503,14 @@ export default function App() {
                 }
 
                 if (matchedRule.action === 'instant_spin') {
+                  // Hediye olayları tek başına çarkı başlatamaz. Çark yalnızca
+                  // yayıncı manuel Çarkı Çevir veya Oto Çevir kontrolünü açınca döner.
                   addFeedItem({
                     type: 'gift',
                     username: msg.displayName || msg.username,
-                    text: `${matchedRule.name} × ${giftCount} gönderdi — Anında Çark Dönüşü Tetiklendi!`,
+                    text: `${matchedRule.name} × ${giftCount} gönderdi — Çarkı yalnızca yayıncı başlatabilir.`,
                     avatar: msg.avatar,
                   });
-                  window.setTimeout(() => handleSpinWheel(), 800);
                 } else if (matchedRule.action === 'special_bonus') {
                   // Özel bonus hediyesi: 1-8 arası rastgele hak, dikey bonus çarkında gösterilir.
                   const bonusRights = 1 + Math.floor(Math.random() * 8);
@@ -757,6 +759,7 @@ export default function App() {
     spinLockedRef.current = true;
     enrollOpenRef.current = false;
     setRoundInProgress(true);
+    roundInProgressRef.current = true;
 
     setIsSpinning(true);
     setSpinLocked(true);
@@ -896,6 +899,7 @@ export default function App() {
         spinLockedRef.current = false;
         setEnrollOpen(false);
         enrollOpenRef.current = false;
+        roundInProgressRef.current = true;
       }
 
       return updated;
@@ -956,6 +960,7 @@ export default function App() {
   const closeWinnerAndResume = () => {
     setLastRoundWinner(null);
     setRoundInProgress(false);
+    roundInProgressRef.current = false;
     setIsSpinning(false);
     setSpinLocked(false);
     isSpinningRef.current = false;
@@ -997,6 +1002,7 @@ export default function App() {
   const handleNextRound = () => {
     setLastRoundWinner(null);
     setRoundInProgress(false);
+    roundInProgressRef.current = false;
     setParticipants([]); // Clear wheel participants for new round
     setRoundParticipants([]);
     setCurrentAngle(0);
@@ -1017,7 +1023,7 @@ export default function App() {
 
   const handleToggleEnroll = () => {
     // Tur devam ederken manuel buton otomatik kilidi aşamaz.
-    if (roundInProgress || isSpinningRef.current || spinLockedRef.current || lastRoundWinner) return;
+    if (roundInProgressRef.current || roundInProgress || isSpinningRef.current || spinLockedRef.current || lastRoundWinner) return;
     setEnrollOpen((prev) => {
       const next = !prev;
       enrollOpenRef.current = next;
@@ -1025,11 +1031,42 @@ export default function App() {
     });
   };
 
+  const lockCurrentRoundForAutoSpin = () => {
+    if (roundInProgressRef.current || lastRoundWinner) return;
+    const active = participants.filter((p) => !p.isEliminated && p.rights > 0);
+    // Oto çevir başlatıldığı anda mevcut listeyi sabitle; ilk dönüşün
+    // başlamasını beklerken de yeni katılımcı/hak kabul edilmesin.
+    if (active.length > 0) {
+      roundInProgressRef.current = true;
+      setRoundInProgress(true);
+      enrollOpenRef.current = false;
+      setEnrollOpen(false);
+      setRoundParticipants([...participants]);
+    }
+  };
+
+  const handleToggleAutoSpin = () => {
+    const nextEnabled = !settingsRef.current.autoSpinEnabled;
+    if (nextEnabled) lockCurrentRoundForAutoSpin();
+    const interval = Math.max(1, settingsRef.current.autoSpinIntervalSec || 15);
+    countdownRef.current = interval;
+    setAutoSpinCountdown(interval);
+    setSettings((prev) => ({ ...prev, autoSpinEnabled: nextEnabled }));
+  };
+
+  const handleControlPanelSettingsUpdate = (nextSettings: GameSettings) => {
+    if (!settingsRef.current.autoSpinEnabled && nextSettings.autoSpinEnabled) {
+      lockCurrentRoundForAutoSpin();
+    }
+    setSettings(nextSettings);
+  };
+
   const handleResetParticipants = () => {
     setParticipants([]);
     setRoundParticipants([]);
     setLastRoundWinner(null);
     setRoundInProgress(false);
+    roundInProgressRef.current = false;
     setSpinLocked(false);
     spinLockedRef.current = false;
     setEnrollOpen(true);
@@ -1113,12 +1150,7 @@ export default function App() {
             autoSpinEnabled={settings.autoSpinEnabled}
             autoSpinIntervalSec={settings.autoSpinIntervalSec || 15}
             autoSpinCountdown={autoSpinCountdown}
-            onToggleAutoSpin={() =>
-              setSettings((prev) => ({
-                ...prev,
-                autoSpinEnabled: !prev.autoSpinEnabled,
-              }))
-            }
+            onToggleAutoSpin={handleToggleAutoSpin}
             onSetAutoSpinInterval={(sec) => {
               setSettings((prev) => ({
                 ...prev,
@@ -1154,7 +1186,7 @@ export default function App() {
         ) : (
           <ControlPanel
             settings={settings}
-            onUpdateSettings={setSettings}
+            onUpdateSettings={handleControlPanelSettingsUpdate}
             tikTokStatus={tikTokStatus}
             onConnectTikTok={handleConnectTikTok}
             onDisconnectTikTok={handleDisconnectTikTok}
