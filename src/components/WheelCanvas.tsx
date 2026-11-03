@@ -89,7 +89,10 @@ export const WheelCanvas: React.FC<WheelCanvasProps> = ({
     if (activeList.length === 0 || totalSlots === 0) return { participant: null, index: -1 };
 
     // Pointer is located at the top: angle = -PI/2
-    const normalized = (((-Math.PI / 2 - angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    // The first sector is drawn from (currentAngle - PI/2), while the pointer
+    // is fixed at -PI/2. Therefore the pointer-relative wheel coordinate is -angle.
+    // Keep this identical to the drawing and final-angle math used by App.tsx.
+    const normalized = (((-angle) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     let cumulative = 0;
 
     for (let i = 0; i < activeList.length; i++) {
@@ -287,14 +290,22 @@ export const WheelCanvas: React.FC<WheelCanvasProps> = ({
 
     // Sector tick sound & active candidate detection
     const currentPick = getSelectedParticipantAtAngle(currentAngle);
-    if (currentPick.index !== -1 && currentPick.index !== lastSectorIdxRef.current) {
-      lastSectorIdxRef.current = currentPick.index;
-      if (soundEnabled && isSpinning) {
+    if (currentPick.index !== -1) {
+      if (currentPick.index !== lastSectorIdxRef.current && soundEnabled && isSpinning) {
         soundEngine.playSectorTick(0.8, (spinVolume || 60) / 100);
       }
+      lastSectorIdxRef.current = currentPick.index;
+
+      // Always synchronize the name banner with the exact sector under the pointer.
+      // Comparing IDs (not only sector indexes) also handles participant removals/reordering.
       if (currentPick.participant) {
-        setActiveCandidate(currentPick.participant);
+        setActiveCandidate((previous) =>
+          previous?.id === currentPick.participant?.id ? previous : currentPick.participant
+        );
       }
+    } else {
+      lastSectorIdxRef.current = -1;
+      setActiveCandidate(null);
     }
 
     // Render Loupe (Magnifying glass preview of needle contact area)

@@ -972,6 +972,46 @@ export default function App() {
     });
   };
 
+  // Winner modal actions: close, keep, and eliminate all update the game state.
+  const closeWinnerAndResume = () => {
+    setLastRoundWinner(null);
+    setIsSpinning(false);
+    setSpinLocked(false);
+    isSpinningRef.current = false;
+    spinLockedRef.current = false;
+    setEnrollOpen(true);
+    enrollOpenRef.current = true;
+    setAutoSpinCountdown(settings.autoSpinIntervalSec || 15);
+  };
+
+  const handleEliminateWinner = (winnerId: string) => {
+    const eliminated = lastRoundWinner;
+    setParticipants((prev) =>
+      prev.map((participant) =>
+        participant.id === winnerId
+          ? { ...participant, rights: 0, isEliminated: true }
+          : participant
+      )
+    );
+    addFeedItem({
+      type: 'elim',
+      username: eliminated?.displayName || eliminated?.username || 'Kazanan',
+      text: 'Kazanan oyuncu çarktan çıkarıldı.',
+      avatar: eliminated?.avatar || '',
+    });
+    closeWinnerAndResume();
+  };
+
+  const handleKeepWinner = () => {
+    addFeedItem({
+      type: 'system',
+      username: lastRoundWinner?.displayName || lastRoundWinner?.username || 'Kazanan',
+      text: 'Kazanan oyuncu çarkta tutuldu. Devam edilebilir.',
+      avatar: lastRoundWinner?.avatar || '',
+    });
+    closeWinnerAndResume();
+  };
+
   // Transition to Next Round
   const handleNextRound = () => {
     setLastRoundWinner(null);
@@ -1128,6 +1168,9 @@ export default function App() {
               });
               setSpecialBonus(null);
             }}
+            onCloseWinnerModal={closeWinnerAndResume}
+            onEliminateWinner={handleEliminateWinner}
+            onKeepWinner={handleKeepWinner}
           />
         ) : (
           <ControlPanel
