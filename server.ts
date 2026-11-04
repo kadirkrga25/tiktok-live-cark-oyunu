@@ -18,6 +18,19 @@ const PORT = process.env.NODE_ENV === 'production' && process.env.PORT ? parseIn
 
 app.use(express.json());
 
+// Lightweight health/keep-alive endpoint. Browser clients call this periodically
+// while the control/OBS page is open so Render receives real inbound traffic.
+app.get('/api/keepalive', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.status(200).json({ ok: true, service: 'carkix', timestamp: Date.now() });
+});
+
+// Render HTTP health-check endpoint (configure Health Check Path as /healthz).
+app.get('/healthz', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).json({ ok: true });
+});
+
 // Full catalogue endpoint. This uses the legacy connector's direct getAvailableGifts()
 // API for catalogue retrieval only; PirateTok remains the live event connection.
 app.get('/api/tiktok-gifts', async (_req: Request, res: Response) => {

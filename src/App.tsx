@@ -121,6 +121,24 @@ export default function App() {
   const enrollOpenRef = useRef(true);
   const settingsRef = useRef(settings);
 
+  // Keep the Render free web service warm while this app (including OBS mode)
+  // is open. This is a real browser -> Render request, not a localhost self-ping.
+  // Ten minutes stays below Render Free's 15-minute idle window.
+  useEffect(() => {
+    let active = true;
+    const ping = () => {
+      if (!active) return;
+      fetch('/api/keepalive', { method: 'GET', cache: 'no-store', keepalive: true })
+        .catch(() => { /* transient network errors are harmless; next ping retries */ });
+    };
+    ping();
+    const intervalId = window.setInterval(ping, 10 * 60 * 1000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   useEffect(() => {
     isSpinningRef.current = isSpinning;
   }, [isSpinning]);
@@ -512,7 +530,17 @@ export default function App() {
                     avatar: msg.avatar,
                   });
                 } else if (matchedRule.action === 'special_bonus') {
-                  // Özel bonus hediyesi: 1-8 arası rastgele hak, dikey bonus çarkında gösterilir.
+                  // Tur başladıktan sonra bonus hediyeleri bu turda kesinlikle işlenmez.
+                  if (roundInProgressRef.current || roundInProgress) {
+                    addFeedItem({
+                      type: 'gift',
+                      username: msg.displayName || msg.username,
+                      text: `${matchedRule.name} gönderdi — Tur devam ettiği için özel bonus uygulanmadı.`,
+                      avatar: msg.avatar,
+                    });
+                    return;
+                  }
+                  // Özel bonus hediyesi: yalnızca tur dışında 1-8 arası rastgele hak verir.
                   const bonusRights = 1 + Math.floor(Math.random() * 8);
                   setSpecialBonus({
                     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -760,6 +788,8 @@ export default function App() {
     enrollOpenRef.current = false;
     setRoundInProgress(true);
     roundInProgressRef.current = true;
+    // Önceki turdan bekleyen bir bonus animasyonu varsa yeni tur başlarken temizle.
+    setSpecialBonus(null);
 
     setIsSpinning(true);
     setSpinLocked(true);
@@ -1086,7 +1116,7 @@ export default function App() {
         <div className="bg-slate-900 border-b border-white/10 px-4 py-2 flex items-center justify-between text-xs">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 font-black text-pink-500 tracking-tight text-sm">
-              <span>🎡 TikTok LIVE Çark Pro</span>
+              <span>🎡 ÇARKIX</span>
             </div>
             <div className="h-4 w-px bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-1.5 text-slate-400">

@@ -2,6 +2,9 @@ import React from 'react';
 import { Gift, Heart, UserPlus, Radio, Activity } from 'lucide-react';
 import { getFallbackAvatar } from '../utils/avatars';
 
+/** Shared event shape used by the broadcast overlay and activity feed. */
+export type StreamFeedEvent = Record<string, any>;
+
 /** Accepts both the current FeedEvent shape and the older { type, data } shape. */
 type FeedItem = Record<string, any> | null | undefined;
 interface RecentEventsFeedProps { events?: FeedItem[] }

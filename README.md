@@ -55,3 +55,16 @@ Build adımı `dist/` klasörünü oluşturur. Sunucu üretim ortamında bu klas
 - Uygulamanın çağırdığı ses fonksiyonları eksikti; eksik ses efektleri eklendi ve ses hatalarının oyunu durdurması engellendi.
 - Otomatik çevirme, React state güncellemesinin içinden çarkı başlatmayacak şekilde yeniden düzenlendi. Böylece aynı anda birden fazla dönüş tetiklenmesi ve otomatik mod sırasında ekranın çökmesine yol açabilen render döngüsü riski giderildi.
 - Tek katılımcı kaldığında da dönüş kilidi tutarlı biçimde kapatılıyor.
+
+
+## Render keep-alive ve sağlık kontrolü
+
+- Uygulama açıkken (ana panel veya OBS modu) tarayıcı, Render servisine her 10 dakikada bir `/api/keepalive` isteği gönderir. Bu istek tarayıcıdan Render'a giden gerçek gelen trafik olduğu için Free servisin boşta kalma süresini yenilemeye yardımcı olur.
+- Sağlık kontrolü için `/healthz` endpoint'i eklendi. Render Dashboard → ilgili Web Service → Settings → Health Check Path alanına `/healthz` yazılabilir.
+- Bu mekanizma uygulama sayfası açıkken çalışır. Tarayıcı/OBS tamamen kapalıysa istek gönderilemez. Ayrıca Render bakım, deploy veya platform kaynaklı yeniden başlatmalarını engellemez; yalnızca boşta kalma nedeniyle uykuya geçmeyi önlemeye yardımcı olur.
+
+## Arka planda Render Keep-Alive
+
+`.github/workflows/render-keepalive.yml` GitHub Actions zamanlayıcısı ile her 10 dakikada bir Render üzerindeki `/healthz` adresine dışarıdan HTTP isteği gönderir. Bu işlem OBS veya kontrol paneli açık olmasa da GitHub tarafında çalışır.
+
+Kurulumdan sonra GitHub deposunda **Actions** sekmesinin etkin olduğundan ve `Render Keep Alive` iş akışının çalışmasına izin verildiğinden emin olun. İlk çalışmayı Actions sekmesinden `Run workflow` ile elle de başlatabilirsiniz. GitHub zamanlanmış işler yoğunluk nedeniyle birkaç dakika gecikebilir; bu yüzden kesin çalışma garantisi değildir. Render servisinin URL'si değişirse workflow içindeki `HEALTH_URL` değerini güncelleyin.
