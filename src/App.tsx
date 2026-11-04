@@ -1134,6 +1134,7 @@ export default function App() {
             settings={settings}
             isSpinning={isSpinning}
             spinLocked={spinLocked}
+            roundInProgress={roundInProgress}
             enrollOpen={enrollOpen}
             currentAngle={currentAngle}
             targetAngle={targetAngle}

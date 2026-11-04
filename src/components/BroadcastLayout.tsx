@@ -33,6 +33,7 @@ export interface BroadcastLayoutProps {
   settings: AppSettings;
   isSpinning: boolean;
   spinLocked?: boolean;
+  roundInProgress?: boolean;
   enrollOpen?: boolean;
   currentAngle?: number;
   targetAngle?: number;
@@ -77,6 +78,7 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
   settings,
   isSpinning,
   spinLocked = false,
+  roundInProgress = false,
   currentAngle = 0,
   targetAngle = 0,
   lastRoundWinner,
