@@ -1116,7 +1116,7 @@ export default function App() {
         <div className="bg-slate-900 border-b border-white/10 px-4 py-2 flex items-center justify-between text-xs">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 font-black text-pink-500 tracking-tight text-sm">
-              <span>🎡 ÇARKIX</span>
+              <span>🎡 ÇARK<span className="text-violet-400">iX</span></span>
             </div>
             <div className="h-4 w-px bg-white/10 hidden sm:block" />
             <div className="flex items-center gap-1.5 text-slate-400">

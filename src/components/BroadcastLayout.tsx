@@ -11,6 +11,7 @@ import { RecentEventsFeed, StreamFeedEvent } from './RecentEventsFeed';
 import { BigGiftAlert } from './BigGiftAlert';
 import { SpecialBonusWheel } from './SpecialBonusWheel';
 import { WinnerModal } from './WinnerModal';
+import { getFallbackAvatar } from '../utils/avatars';
 import {
   Play,
   RotateCcw,
@@ -109,21 +110,31 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
   onClearAllParticipants,
 }) => {
   const [internalFullscreen, setInternalFullscreen] = useState(false);
-  const [eliminationNotice, setEliminationNotice] = useState<{ username: string; text: string } | null>(null);
+  const [eliminationNotice, setEliminationNotice] = useState<{ username: string; text: string; avatar: string } | null>(null);
   const lastEliminationIdRef = useRef<string | null>(null);
+  const eliminationTimerRef = useRef<number | null>(null);
+  const eventSource = Array.isArray(recentEvents) && recentEvents.length > 0 ? recentEvents : Array.isArray(events) ? events : [];
+  const latestElimination = eventSource.find((event: any) => String(event?.type || '').toLowerCase() === 'elim') || null;
 
-  // Tüm haklarını kaybeden kişiyi yayında kısa süreli görünür kıl.
+  // Tamamen elenen kişiyi 0,75 saniye göster. Timer, normal render/feed güncellemelerinde temizlenmez.
   useEffect(() => {
-    const source = Array.isArray(recentEvents) ? recentEvents : Array.isArray(events) ? events : [];
-    const latest = source.find((event: any) => String(event?.type || '').toLowerCase() === 'elim');
-    if (!latest) return;
-    const id = String(latest.id || `${latest.username || 'viewer'}-${latest.timestamp || ''}`);
+    if (!latestElimination) return;
+    const id = String(latestElimination.id || `${latestElimination.username || 'viewer'}-${latestElimination.timestamp || ''}`);
     if (lastEliminationIdRef.current === id) return;
     lastEliminationIdRef.current = id;
-    setEliminationNotice({ username: latest.username || 'İzleyici', text: latest.text || 'Tüm haklarını kaybetti ve elendi!' });
-    const timer = window.setTimeout(() => setEliminationNotice(null), 1000);
-    return () => window.clearTimeout(timer);
-  }, [recentEvents, events]);
+    if (eliminationTimerRef.current !== null) window.clearTimeout(eliminationTimerRef.current);
+    const username = latestElimination.displayName || latestElimination.username || 'İzleyici';
+    const avatar = latestElimination.avatar || latestElimination.avatarUrl || latestElimination.profilePictureUrl || getFallbackAvatar(username);
+    setEliminationNotice({ username, text: 'TÜM HAKLARINI KAYBETTİ • ELENDİ!', avatar });
+    eliminationTimerRef.current = window.setTimeout(() => {
+      setEliminationNotice(null);
+      eliminationTimerRef.current = null;
+    }, 750);
+  }, [latestElimination?.id, latestElimination?.timestamp]);
+
+  useEffect(() => () => {
+    if (eliminationTimerRef.current !== null) window.clearTimeout(eliminationTimerRef.current);
+  }, []);
 
   const isFullscreen = propIsFullscreen ?? internalFullscreen;
 
@@ -167,10 +178,16 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
     <div className={`min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans ${isFullscreen ? 'p-2' : 'p-4 md:p-6'}`}>
       {eliminationNotice && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none">
-          <div className="rounded-3xl border-2 border-rose-400/80 bg-slate-950/95 px-10 py-7 text-center shadow-[0_0_70px_rgba(244,63,94,0.45)] animate-in zoom-in duration-200">
-            <div className="text-5xl mb-2">💥</div>
+          <div className="rounded-3xl border-2 border-rose-400/80 bg-slate-950/95 px-8 py-7 text-center shadow-[0_0_70px_rgba(244,63,94,0.45)] animate-in zoom-in duration-150">
+            <img
+              src={eliminationNotice.avatar}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = getFallbackAvatar(eliminationNotice.username); }}
+              className="mx-auto mb-3 h-20 w-20 md:h-24 md:w-24 rounded-full border-4 border-rose-400 object-cover shadow-lg"
+            />
             <div className="text-3xl md:text-5xl font-black text-white">{eliminationNotice.username}</div>
-            <div className="mt-2 text-lg md:text-2xl font-extrabold text-rose-300">TÜM HAKLARINI KAYBETTİ • ELENDİ!</div>
+            <div className="mt-2 text-lg md:text-2xl font-extrabold text-rose-300">{eliminationNotice.text}</div>
           </div>
         </div>
       )}
@@ -182,7 +199,7 @@ export const BroadcastLayout: React.FC<BroadcastLayoutProps> = ({
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black tracking-tight text-white flex items-center gap-2">
-              ÇARKIX
+              <span>ÇARK</span><span className="text-violet-400">iX</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
                 PRO YAYIN
               </span>
